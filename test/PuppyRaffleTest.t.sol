@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.6;
+pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 
 import {Test, console} from "forge-std/Test.sol";
@@ -212,5 +212,31 @@ contract PuppyRaffleTest is Test {
         puppyRaffle.selectWinner();
         puppyRaffle.withdrawFees();
         assertEq(address(feeAddress).balance, expectedPrizeAmount);
+    }
+
+    function test_DoS() public {
+        vm.txGasPrice(1);
+        uint256 playersNum = 100;
+
+        address[] memory players = new address[](playersNum);
+        for (uint256 i = 0; i < playersNum; i++)  {
+            players[i] = vm.addr(i+1);
+        }
+        uint256 gasStart = gasleft();
+        puppyRaffle.enterRaffle{value: entranceFee * players.length}(players);
+        uint256 gasEnd = gasleft();
+        uint256 gasUsedFirst100 = (gasStart - gasEnd) * tx.gasprice;
+        console.log("Gas cost of the first 100 players", gasUsedFirst100);
+
+        address[] memory players2 = new address[](playersNum);
+        for (uint256 i = 0; i < playersNum; i++)  {
+            players2[i] = vm.addr(i+101);
+        }
+        gasStart = gasleft();
+        puppyRaffle.enterRaffle{value: entranceFee * players2.length}(players2);
+        gasEnd = gasleft();
+        uint256 gasUsedSecond100 = (gasStart - gasEnd) * tx.gasprice;
+        console.log("Gas cost of the second 100 players", gasUsedSecond100);
+        assert(gasUsedFirst100 < gasUsedSecond100);
     }
 }
